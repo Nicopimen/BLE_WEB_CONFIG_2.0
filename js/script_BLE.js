@@ -276,7 +276,7 @@ function onDisconnected(event){
 }
 
 
-function handleCharacteristicChangeTempAmb(){
+function handleCharacteristicChangeTempAmb(event){
   //para temperatura Ambiente
   const newValueReceived = new TextDecoder().decode(event.target.value);
   console.log("Temperatura Amb: ", newValueReceived);
