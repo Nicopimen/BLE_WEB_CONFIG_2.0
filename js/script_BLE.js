@@ -1,0 +1,923 @@
+// DOM Elements
+const connectButton = document.getElementById('connectBleButton');
+const disconnectButton = document.getElementById('disconnectBleButton');
+const bleStateContainer = document.getElementById('bleState');
+
+/*
+const onButton = document.getElementById('onButton');
+const abfButton = document.getElementById('abfButton');
+const actButton = document.getElementById('actButton');
+const retrievedValue = document.getElementById('valueContainer');
+
+const timestampContainer = document.getElementById('timestamp');
+const timesEstadoContainer = document.getElementById('tiempoState');
+const tempAmbienteContainer = document.getElementById('tempamb');
+
+const parametroLeido = document.getElementById('parLeido');
+const selecTextos = document.getElementById('selecText');
+*/
+const usuarioActivo = obtenerUsuarioDesdeURL();
+
+if (!usuarioActivo) {
+  Swal.fire({
+    title: "Acceso denegado",
+    text: "No se detectó un usuario válido.",
+    icon: "error",
+    background: "#2c2c2e",
+    color: "#e0e0e0",
+    confirmButtonColor: "#4b6cb7",
+    confirmButtonText: "OK",
+    customClass: {
+        popup: 'swal-dark'
+      } 
+  });
+  
+  // redirigir a login
+   window.location.href = "index.html";
+}
+
+if (usuarioActivo !== "Admin") {
+  const adminMenu = document.getElementById("adminMenu");
+  if (adminMenu) adminMenu.style.display = "none";
+}
+
+document.getElementById("usuarioActivo").textContent = `👤 Usuario: ${usuarioActivo}`;
+
+var onButton;
+var abfButton;
+var actButton;
+var retrievedValue;
+var parametroLeido;
+var selecTextos;
+var timestampContainer;
+var timesEstadoContainer;
+var tempAmbienteContainer;
+
+
+//Define BLE Device Specs
+var deviceName ='COFACO_BLE';
+var bleService = 'b8d7ce51-ab47-4ff8-aa8c-2fb686bbceb3';
+var ESTADO_CHARACTERISTIC_UUID =        "f60844f9-f620-4e3e-9c0d-e530339f9bb9"
+var START_STOP_CHARACTERISTIC_UUID =     "eeee0cae-4c2d-4222-83fa-a82322668851"
+var ALTO_BAJO_CHARACTERISTIC_UUID =      "be2fb044-c6a5-46a8-97b2-2a8eae7012c1"
+var PARAMETRO_CHARACTERISTIC_UUID =      "2bbdf4a6-104a-4c6d-a625-469fe13c4b53"
+var TIME_ESTADO_CHARACTERISTIC_UUID =    "9df5f2a4-4464-44f2-8159-bc84c218d566"
+var MODELO_CHARACTERISTIC_UUID =         "124762d6-c702-4871-8f15-6d85f8c18b44"
+var TEMP_AMB_CHARACTERISTIC_UUID =        "f090ca78-40ef-48d0-891c-07aad1236d4a"
+
+//Global Variables to Handle Bluetooth
+var bleServer;
+var bleServiceFound;
+var sensorCharacteristicFound;
+
+var modelo;
+var opcionesTextuales=[];
+var datosModelo=[];
+var permisos=[];
+var lastDirParam;
+var lastDirParamIsTexto;
+var lastValueWrite="";
+
+// Connect Button (search for BLE Devices only if BLE is available)
+connectButton.addEventListener('click', (event) => {
+    if (isWebBluetoothEnabled()){
+        connectToDevice();
+    }
+});
+
+// Disconnect Button
+disconnectButton.addEventListener('click', disconnectDevice);
+
+// Write to the ESP32 Characteristic
+/*onButton.addEventListener('click', () => writeOnCharacteristic(1,START_STOP_CHARACTERISTIC_UUID));
+abfButton.addEventListener('click', () => writeOnCharacteristic(1,ALTO_BAJO_CHARACTERISTIC_UUID));
+actButton.addEventListener('click', () => escribirParametro());
+*/
+
+// Check if BLE is available in your Browser
+function isWebBluetoothEnabled() {
+    if (!navigator.bluetooth) {
+        console.log('Web Bluetooth API is not available in this browser!');
+        bleStateContainer.innerHTML = "Web Bluetooth API no esta disponible!";
+        return false
+    }
+    console.log('Web Bluetooth API supported in this browser.');
+    return true
+}
+
+function obtenerUsuarioDesdeURL() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("usuario");
+}
+
+function cerrarSesion() {
+  window.location.href = "index.html";
+}
+
+// Connect to BLE Device and Enable Notifications
+function connectToDevice(){
+   
+    console.log('Initializing Bluetooth...');
+    navigator.bluetooth.requestDevice({
+       // filters: [{name: deviceName}],
+        filters: [{namePrefix: "COFACO"}],
+        optionalServices: [bleService]
+    })
+    .then(device => {
+        console.log('Device Selected:', device.name);
+        bleStateContainer.innerHTML = 'Conectado ' + device.name;
+        bleStateContainer.style.color = "#24af37";
+        
+        device.addEventListener('gattservicedisconnected', onDisconnected);
+
+        mostrarSpinner("🔗 Conectando...");
+
+        return device.gatt.connect();
+    })
+    .then(gattServer =>{
+        bleServer = gattServer;
+        console.log("Connected to GATT Server");
+        return bleServer.getPrimaryService(bleService);
+    })
+    .then(async service => {
+        bleServiceFound = service;
+        console.log("Service discovered:", service.uuid);
+
+        mostrarSpinner("📥 Leyendo modelo...");
+        
+        modelo =  await readCharacteristic(MODELO_CHARACTERISTIC_UUID);
+        console.log("Modelo: ", modelo);
+        const pantallaVisible = document.getElementById(`pantalla-${modelo}`);
+
+       
+         onButton =  pantallaVisible.querySelector("#onButton");
+         abfButton = pantallaVisible.querySelector("#abfButton");
+         actButton =  pantallaVisible.querySelector("#actButton");
+         retrievedValue =  pantallaVisible.querySelector("#valueContainer");
+         parametroLeido =  pantallaVisible.querySelector("#parLeido");
+         selecTextos =  pantallaVisible.querySelector("#selecText");
+         timestampContainer =  pantallaVisible.querySelector("#timestamp");
+         timesEstadoContainer =  pantallaVisible.querySelector("#tiempoState");
+         tempAmbienteContainer =  pantallaVisible.querySelector("#tempamb");
+       
+       // ocultarSpinner();
+
+        if(modelo==="CE5"){
+           
+            if(usuarioActivo==="Admin")
+              cargarOpcionesEnSelect("opcionesPorParametroCE5.csv","PermisosAdmin_CE5.csv" );
+            else if(usuarioActivo==="Ingenieria1")
+              cargarOpcionesEnSelect("opcionesPorParametroCE5.csv","PermisosIngenieria1_CE5.csv" );
+            else if(usuarioActivo==="Ingenieria2")
+              cargarOpcionesEnSelect("opcionesPorParametroCE5.csv","PermisosIngenieria2_CE5.csv" );
+            else if(usuarioActivo==="Tecnica1")
+              cargarOpcionesEnSelect("opcionesPorParametroCE5.csv","PermisosTecnica1_CE5.csv" );
+            else if(usuarioActivo==="Tecnica2")
+              cargarOpcionesEnSelect("opcionesPorParametroCE5.csv","PermisosTecnica2_CE5.csv" );
+
+            onButton.addEventListener('click', () => writeOnCharacteristic(1,START_STOP_CHARACTERISTIC_UUID));
+            abfButton.addEventListener('click', () => writeOnCharacteristic(1,ALTO_BAJO_CHARACTERISTIC_UUID));
+            actButton.addEventListener('click', () => escribirParametro());
+            document.getElementById("pantalla-CE5").style.display = "block";
+        
+        }else if(modelo==="CE4"){
+          
+            if(usuarioActivo==="Admin")
+              cargarOpcionesEnSelect("opcionesPorParametroCE4.csv","PermisosAdmin_CE4.csv" );
+            else if(usuarioActivo==="Ingenieria1")
+              cargarOpcionesEnSelect("opcionesPorParametroCE4.csv","PermisosIngenieria1_CE4.csv" );
+            else if(usuarioActivo==="Ingenieria2")
+              cargarOpcionesEnSelect("opcionesPorParametroCE4.csv","PermisosIngenieria2_CE4.csv" );
+            else if(usuarioActivo==="Tecnica1")
+              cargarOpcionesEnSelect("opcionesPorParametroCE4.csv","PermisosTecnica1_CE4.csv" );
+            else if(usuarioActivo==="Tecnica2")
+              cargarOpcionesEnSelect("opcionesPorParametroCE4.csv","PermisosTecnica2_CE4.csv" );
+            
+            onButton.addEventListener('click', () => writeOnCharacteristic(1,START_STOP_CHARACTERISTIC_UUID));
+            abfButton.addEventListener('click', () => writeOnCharacteristic(1,ALTO_BAJO_CHARACTERISTIC_UUID));
+            actButton.addEventListener('click', () => escribirParametro());
+            document.getElementById("pantalla-CE4").style.display = "block";
+       
+        }else if(modelo==="CE4_MS"){
+          if(usuarioActivo==="Admin")
+            cargarOpcionesEnSelect("opcionesPorParametroCE4.csv","PermisosAdmin_CE4_MS.csv" );
+          else if(usuarioActivo==="Ingenieria1")
+            cargarOpcionesEnSelect("opcionesPorParametroCE4.csv","PermisosIngenieria1_CE4_MS.csv" );
+          else if(usuarioActivo==="Ingenieria2")
+            cargarOpcionesEnSelect("opcionesPorParametroCE4.csv","PermisosIngenieria2_CE4_MS.csv" );
+          else if(usuarioActivo==="Tecnica1")
+            cargarOpcionesEnSelect("opcionesPorParametroCE4.csv","PermisosTecnica1_CE4_MS.csv" );
+          else if(usuarioActivo==="Tecnica2")
+            cargarOpcionesEnSelect("opcionesPorParametroCE4.csv","PermisosTecnica2_CE4_MS.csv" );
+
+          onButton.addEventListener('click', () => writeOnCharacteristic(1,START_STOP_CHARACTERISTIC_UUID));
+          actButton.addEventListener('click', () => escribirParametro());
+          document.getElementById("pantalla-CE4_MS").style.display = "block";
+        
+        }else{
+           // alert("Modelo no reconocido");
+            Swal.fire({ 
+              title: "Modelo no reconocido", 
+             // html: `Debe completar los datos`,
+              icon: "error",
+              background: "#2c2c2e",
+              color: "#e0e0e0",
+              confirmButtonColor: "#4b6cb7",
+              confirmButtonText: "OK",
+              customClass: {
+                  popup: 'swal-dark'
+                } 
+              });
+        }
+
+        ocultarSpinner();
+
+        return service.getCharacteristic(ESTADO_CHARACTERISTIC_UUID);
+    })
+    .then(characteristic => {
+        console.log("Characteristic discovered:", characteristic.uuid);
+        sensorCharacteristicFound = characteristic;
+        characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChange);
+        characteristic.startNotifications();
+        console.log("Notifications Started Estado.");
+        return bleServiceFound.getCharacteristic(TIME_ESTADO_CHARACTERISTIC_UUID); // characteristic.readValue();
+    })
+
+    // bleServiceFound.getCharacteristic(TIME_ESTADO_CHARACTERISTIC_UUID)
+    .then(characteristic => {
+       characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChangeTiempo);
+       characteristic.startNotifications();
+       console.log("Notifications Started tiempo .");
+      return bleServiceFound.getCharacteristic(PARAMETRO_CHARACTERISTIC_UUID);
+    })
+    .then(characteristic => {
+       characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChangeParametro);
+       characteristic.startNotifications();
+       console.log("Notifications Started parametro .");
+       //leerParametro();
+       return bleServiceFound.getCharacteristic(TEMP_AMB_CHARACTERISTIC_UUID);
+    })
+    .then(characteristic => {
+      characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChangeTempAmb);
+      characteristic.startNotifications();
+      console.log("Notifications Started TempAmb .");
+   })
+    .catch(error => {
+        console.log('Error: ', error);
+    })
+}
+
+function onDisconnected(event){
+    console.log('Device Disconnected:', event.target.device.name);
+    bleStateContainer.innerHTML = "Desconectado";
+    bleStateContainer.style.color = "#d13a30";
+
+    connectToDevice();
+}
+
+
+function handleCharacteristicChangeTempAmb(){
+  //para temperatura Ambiente
+  const newValueReceived = new TextDecoder().decode(event.target.value);
+  console.log("Temperatura Amb: ", newValueReceived);
+  tempAmbienteContainer.innerHTML = newValueReceived;
+
+}
+
+ function handleCharacteristicChangeTiempo(event){
+   //para el tiempo del estado en seg
+     const newValueReceived = new TextDecoder().decode(event.target.value);
+    console.log("Tiempo en estado: ", newValueReceived);
+    timesEstadoContainer.innerHTML = segundosAHoras(parseInt(newValueReceived, 10));
+    //timesEstadoContainer.innerHTML = newValueReceived;
+ }
+
+ function handleCharacteristicChangeParametro(event){
+   //para el lectura del parametro
+    const newValueReceived = new TextDecoder().decode(event.target.value);
+    console.log("Parmetro valor: ", newValueReceived);
+    
+
+    for (var i=0; i<opcionesTextuales.length; i++) {
+      var dir = opcionesTextuales[i][0];
+      if(dir==lastDirParam){
+        //es textual
+        console.log("Es un parametro textual: ", parseInt(newValueReceived) + 1);
+        parametroLeido.value = opcionesTextuales[i][parseInt(newValueReceived) + 1];
+        return; 
+      }
+    
+}
+    //es numerico  
+    parametroLeido.value = newValueReceived;
+ }
+
+function handleCharacteristicChange(event){
+   //para el estado del quemador
+    const newValueReceived = new TextDecoder().decode(event.target.value);
+    console.log("Estado Recibido: ", newValueReceived);
+    retrievedValue.innerHTML = newValueReceived;
+    timestampContainer.innerHTML = getDateTime();
+   
+    if(newValueReceived.includes("AL")){
+        onButton.innerText = "REARMAR";
+    }else  if(newValueReceived !==("LISTO") && newValueReceived !==("EN ESPERA") ){
+        onButton.innerText = "APAGAR";
+    }else{
+         onButton.innerText = "ENCENDER";
+    }
+     //var BabfC = readCharacteristic(ALTO_BAJO_CHARACTERISTIC_UUID);
+
+
+        bleServiceFound.getCharacteristic(ALTO_BAJO_CHARACTERISTIC_UUID)
+        .then(characteristic => {
+            // console.log("Found the characteristic: ", characteristic.uuid);
+            return characteristic.readValue();
+        })
+        .then(value => {
+            console.log("Lellendo Estado ABF");
+              var abfC = new TextDecoder().decode(value);
+              console.log("ABF: ", abfC);
+              
+              if(abfC === ("DESACTIVADO")){
+                    if(modelo==="CE4" || modelo === "CE5")
+                      abfButton.innerText="ALTO FUEGO";
+                    else
+                      abfButton.innerText="DESACTIVADO";
+              }else{
+                  if(modelo==="CE4" || modelo === "CE5")
+                    abfButton.innerText="BAJO FUEGO";
+                  else
+                   abfButton.innerText="ACTIVADO";
+              }
+                    
+        })
+        .catch(error => {
+            console.error("Error reading to characteristic: ", error);
+        });
+   
+    
+    
+}
+
+
+function readCharacteristic2(caracteristica){
+
+       
+    if (bleServer && bleServer.connected) {
+        bleServiceFound.getCharacteristic(caracteristica)
+        .then(characteristic => {
+            //console.log("Found the characteristic: ", characteristic.uuid);
+            return characteristic.readValue();
+        })
+        .then(value => {
+            console.log("Lellendo a", caracteristica);
+           
+            if(caracteristica==ALTO_BAJO_CHARACTERISTIC_UUID) {
+                var abfC = new TextDecoder().decode(value);
+                 console.log("Valor leido:", abfC);
+                 
+                 if(abfC.localeCompare("DESACTIVADO")==0){
+                        abfButton.innerText="ALTO FUEGO";
+                    }else
+                        abfButton.innerText="BAJO FUEGO";
+                
+            }
+            if(caracteristica==TIME_ESTADO_CHARACTERISTIC_UUID){
+                 const newValueReceived = new TextDecoder().decode(value);
+                 console.log("Nuevo tiempo Estado: ", newValueReceived);
+                 timesEstadoContainer.innerHTML = newValueReceived;
+                  //readCharacteristic2(ALTO_BAJO_CHARACTERISTIC_UUID);
+            }
+            if(caracteristica==PARAMETRO_CHARACTERISTIC_UUID){
+                
+                const newValueReceived = new TextDecoder().decode(value);
+                console.log("Nuevo val Parametro: ", newValueReceived);
+               
+                //si hubo error
+                if(newValueReceived==="ERROR"){
+                   lastValueWrite="";
+                    leerParametro();
+                }else{
+                  mostrarCampoSegunDireccionYValor(lastDirParam, newValueReceived);
+                  ocultarSpinner();
+                }
+            }
+                    
+        })
+        .catch(error => {
+            console.error("Error reading to characteristic: ", error);
+            ocultarSpinner();
+        });
+    } else {
+        console.error ("Bluetooth is not connected. Cannot write to characteristic.")
+        window.alert("Bluetooth no conectado. \n Debe conectarse!")
+        ocultarSpinner();
+    }
+}
+
+async function readCharacteristic(caracteristica){
+    var resultado="ERROR";
+
+    if (bleServer && bleServer.connected) {
+        await bleServiceFound.getCharacteristic(caracteristica)
+        .then(async characteristic => {
+            console.log("Found the characteristic: ", characteristic.uuid);
+            return await characteristic.readValue();
+        })
+        .then(value => {
+            const decoder = new TextDecoder("utf-8");
+            const lectura = decoder.decode(value).trim();
+            resultado=lectura;
+            console.log("Caracteristica: ", caracteristica);
+            console.log("Valor leido: ", lectura);
+                    
+        })
+        .catch(error => {
+            console.error("Error reading to characteristic: ", error);
+            resultado="ERROR CARACTERISTICA";
+        });
+    } else {
+        console.error ("Bluetooth is not connected. Cannot write to characteristic.")
+        window.alert("Bluetooth no conectado. \n Debe conectarse!")
+        resultado="ERROR NO CONECTADO";
+    }
+
+    return resultado;
+}
+
+function writeOnCharacteristic(value, caracteristica){
+    
+   
+    if (bleServer && bleServer.connected) {
+        bleServiceFound.getCharacteristic(caracteristica)
+        .then(characteristic => {
+            console.log("Found the characteristic: ", characteristic.uuid);
+           
+             //const data = new Uint8Array([value]);
+            //return characteristic.writeValue(data);
+            let encoder = new TextEncoder('utf-8');
+            return characteristic.writeValue(encoder.encode(value));
+        })
+        .then(() => {
+           // latestValueSent.innerHTML = value;
+            console.log("Value written to characteristic:", value);
+            ocultarSpinner();
+        })
+        .catch(error => {
+            console.error("Error writing to characteristic: ", error);
+           // ocultarSpinner();
+        });
+    } else {
+        console.error ("Bluetooth is not connected. Cannot write to characteristic.")
+        window.alert("Bluetooth no conectado. \n Debe conectarse!")
+        ocultarSpinner();
+    }
+}
+
+ function escribirParametro(){
+   // var e = document.getElementById("seleParm");
+    const pantallaVisible = document.getElementById(`pantalla-${modelo}`);
+    var e = pantallaVisible.querySelector("#seleParm");
+    var dir = e.value; //direccion a escribir
+    var parametro = e.options[e.selectedIndex].text;
+    const param = datosModelo.find(p => p.direccion === parseInt(dir));
+
+    const permiso = permisos.find(p => p.parametro === parametro);
+    
+    //console.log('nombre:', parametro);
+
+    console.log('Permisos:', permiso);
+
+    if (!permiso || permiso.editable.toUpperCase() === "NO") {
+
+      Swal.fire({ 
+        title: "No Tiene Permiso de Edicion", 
+       // html: `Debe completar los datos`,
+        icon: "error",
+        background: "#2c2c2e",
+        color: "#e0e0e0",
+        confirmButtonColor: "#4b6cb7",
+        confirmButtonText: "OK",
+        customClass: {
+            popup: 'swal-dark'
+          } 
+        });
+       
+      return; // si no tiene permiso de edicion, me voy
+    }
+    
+    var valor;
+    if(param.tipo==="TEXTO"){
+         valor =  selecTextos.value;
+         
+    }else if(param.tipo==="NUMERICO"){
+        valor =  parametroLeido.value;
+        const partes = parametroLeido.step.split(".");
+        const decimales = partes[1] ? partes[1].length : 0;
+        console.log('decimales:',decimales);
+       
+        let numero = parseFloat(valor.replace(",", "."));
+        console.log('valor:', numero);
+        numero = numero * Math.pow(10, decimales);
+        console.log('valor final:', numero);
+
+        valor= numero.toString();
+        
+
+    }else if(param.tipo==="DESPLAZAMIENTO_WORDS"){
+      
+      //const inputN1 = document.getElementById("n1Leido");
+      //const inputN2 = document.getElementById("n2Leido");
+      const pantallaVisible = document.getElementById(`pantalla-${modelo}`);
+      const inputN1 = pantallaVisible.querySelector("#n1Leido");
+      const inputN2 = pantallaVisible.querySelector("#n2Leido");
+      var valor1 =  inputN1.value;
+      var valor2 =  inputN2.value;
+      let numero1 = parseFloat(valor1.replace(",", "."));
+      let numero2 = parseFloat(valor2.replace(",", "."));
+      numero1 = numero1 * Math.pow(10, 2);
+      numero2 = numero2 * Math.pow(10, 2);
+      numero1=numero1<<16;
+      numero1=numero1+numero2;
+      valor= numero1.toString();
+      console.log('valor DW:', valor);
+      
+    }
+    mostrarSpinner("Actualizando...");
+
+    lastValueWrite=valor;
+   
+    var toSend =dir.concat(",").concat(valor);
+    //escribo la direccion del parametro, 
+     console.log('escribo el parametro:',parametro.concat(" ").concat(toSend));
+    writeOnCharacteristic(toSend, PARAMETRO_CHARACTERISTIC_UUID);
+    // lecturaParam3Async(); //luego de escribir, 3seg y leo para confirmar
+   // ocultarSpinner();
+    
+}
+
+  function leerParametro(){
+    //var e = document.getElementById("seleParm");
+    const pantallaVisible = document.getElementById(`pantalla-${modelo}`);
+    var e = pantallaVisible.querySelector("#seleParm");
+    var dir = e.value; //direccion a leer
+    var parametro = e.options[e.selectedIndex].text;
+     if(dir=="0") return ;
+     lastDirParam=dir;
+     mostrarSpinner("Lellendo...");
+    //escribo la direccion del parametro, y luego de 2seg leo su valor
+     console.log('leo el parametro:',parametro.concat(" ").concat(dir));
+    writeOnCharacteristic(dir, PARAMETRO_CHARACTERISTIC_UUID);
+    lecturaParamAsync();
+   // ocultarSpinner();
+  
+    
+}
+
+// funcion lectura parametro , se ejecuta luego de 2 seg
+function resolveAfter2Seconds() {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        readCharacteristic2(PARAMETRO_CHARACTERISTIC_UUID); 
+      }, 2000);
+    });
+  }
+// funcion lectura parametro , se ejecuta luego de 4 seg
+  function resolveAfter3Seconds() {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        leerParametro();
+      }, 3000);
+    });
+  }
+  
+
+async function lecturaParamAsync() {
+    await resolveAfter2Seconds();
+}
+
+async function lecturaParam3Async() {
+    await resolveAfter3Seconds();
+  
+}
+
+
+function disconnectDevice() {
+    console.log("Disconnect Device.");
+    if (bleServer && bleServer.connected) {
+        if (sensorCharacteristicFound) {
+            sensorCharacteristicFound.stopNotifications()
+                .then(() => {
+                    console.log("Notifications Stopped");
+                    return bleServer.disconnect();
+                })
+                .then(() => {
+                    console.log("Device Disconnected");
+                    bleStateContainer.innerHTML = "Desconectado";
+                    bleStateContainer.style.color = "#d13a30";
+
+                })
+                .catch(error => {
+                    console.log("An error occurred:", error);
+                });
+        } else {
+            console.log("No characteristic found to disconnect.");
+        }
+    } else {
+        // Throw an error if Bluetooth is not connected
+        console.error("Bluetooth is not connected.");
+        window.alert("Bluetooth no conectado.")
+    }
+}
+
+function getDateTime() {
+    var currentdate = new Date();
+    var day = ("00" + currentdate.getDate()).slice(-2); // Convert day to string and slice
+    var month = ("00" + (currentdate.getMonth() + 1)).slice(-2);
+    var year = currentdate.getFullYear();
+    var hours = ("00" + currentdate.getHours()).slice(-2);
+    var minutes = ("00" + currentdate.getMinutes()).slice(-2);
+    var seconds = ("00" + currentdate.getSeconds()).slice(-2);
+
+    var datetime = day + "/" + month + "/" + year + " at " + hours + ":" + minutes + ":" + seconds;
+    return datetime;
+}
+
+function segundosAHoras(segundos) {
+    const horas = Math.floor(segundos / 3600);
+    const minutos = Math.floor((segundos % 3600) / 60);
+    const segs = segundos % 60;
+  
+    // Agrega ceros adelante si es necesario
+    const hh = String(horas).padStart(4, '0');
+    const mm = String(minutos).padStart(2, '0');
+    const ss = String(segs).padStart(2, '0');
+  
+    return `${hh}:${mm}:${ss}`;
+  }
+
+async function parseCSV_DatosModelo(ruta) {
+    
+    const respuesta = await fetch(ruta);
+    const csvTexto = await respuesta.text();
+
+    const lineas = csvTexto.trim().split("\n");
+    const resultado = [];
+  
+    for (const linea of lineas) {
+      const campos = linea.split(";");
+      const nombre = campos[0];
+      const direccion = parseInt(campos[1]);
+      const tipo = campos[2];
+  
+      if (tipo === "TEXTO") {
+        const opciones = campos.slice(3);
+        resultado.push({
+          nombre,
+          direccion,
+          tipo,
+          opciones
+        });
+      } else if (tipo === "NUMERICO") {
+        const min = parseFloat(campos[3]);
+        const max = parseFloat(campos[4]);
+        const decimales = parseInt(campos[5]);
+        const unidad = campos[6];
+        resultado.push({
+          nombre,
+          direccion,
+          tipo,
+          min,
+          max,
+          decimales,
+          unidad
+        });
+      }else if(tipo === "INDICACION"){
+        const decimales = parseInt(campos[3]);
+        const unidad = campos[4];
+        resultado.push({
+          nombre,
+          direccion,
+          tipo,
+          decimales,
+          unidad
+        });
+      }else if(tipo === "DESPLAZAMIENTO_WORDS"){
+        const n1 = campos[3]; //tiene el nombre del primer word
+        const n2 = campos[4]; //tiene el nombre del segundo word
+        const decimales = parseInt(campos[5]);
+        const unidad = campos[6];
+        resultado.push({
+          nombre,
+          direccion,
+          tipo,
+          n1,
+          n2,
+          decimales,
+          unidad
+        });
+      }else if(tipo === "DESPLAZAMIENTO_BITS"){
+        const opciones = campos.slice(3); //tiene el nombre de cada bits
+        resultado.push({
+          nombre,
+          direccion,
+          tipo,
+          opciones
+        });
+      }else {
+        console.warn("Tipo desconocido en línea:", linea);
+      }
+    }
+  
+    return resultado;
+  }
+
+
+  async function parseCSV_Permisos(ruta) {
+    
+    const respuesta = await fetch(ruta);
+    const csvTexto = await respuesta.text();
+
+    const lineas = csvTexto.trim().split("\n");
+    
+    const resultado =  lineas.map(linea => {
+      const [parametro, visible,editable] = linea.split(",");
+      return { parametro: parametro, visible: visible, editable: editable};
+    });
+  
+  
+    return resultado;
+  }
+
+  /*async function cargarPermisosParaUsuario(usuario, tipo) {
+    const archivo = `Permisos${usuario}_${tipo}.csv`;
+    const respuesta = await fetch(archivo);
+    const texto = await respuesta.text();
+    const lineas = texto.trim().split("\n");
+  
+    const resultado = lineas.map(l => {
+      const [parametro, visible, editable] = l.split(",");
+      return {
+        parametro: parametro.trim(),
+        visible: visible.trim(),
+        editable: editable.trim()
+      };
+    });
+
+    return resultado;
+  }
+  */
+
+  function mostrarSpinner(mensaje = "Procesando...") {
+    const spinner = document.getElementById("spinner");
+    const texto = document.getElementById("spinner-text");
+    texto.textContent = mensaje;
+    spinner.style.display = "flex";
+  }
+  
+  function ocultarSpinner() {
+    document.getElementById("spinner").style.display = "none";
+  }
+
+  async function cargarOpcionesEnSelect(rutaCSV, rutaPermisos) {
+    try {
+      const datos = await parseCSV_DatosModelo(rutaCSV); //cargo todos los parametros del modelo
+      datosModelo=datos;
+      permisos = await parseCSV_Permisos(rutaPermisos);
+      console.log(permisos);
+  
+     // const select = document.getElementById("seleParm");
+      const pantallaVisible = document.getElementById(`pantalla-${modelo}`);
+      const select = pantallaVisible.querySelector("#seleParm");
+      select.length = 1; // Deja solo el primer <option> (placeholder)
+  
+      for (const dato of datos) {
+        const permiso = permisos.find(p => p.parametro === dato.nombre);
+        if (!permiso || permiso.visible.toUpperCase() !== "SI") {
+          continue; // si no tiene permiso de visibilidad, no lo muestro
+        }
+  
+        const option = document.createElement("option");
+        option.value = dato.direccion;
+       // option.textContent = `${dato.nombre} (${dato.direccion})`;
+       option.textContent = `${dato.nombre}`;
+       select.appendChild(option);
+
+        // Si es tipo TEXTO, guardamos en el array
+        if (dato.tipo === "TEXTO" && Array.isArray(dato.opciones)) {
+            opcionesTextuales.push([dato.direccion.toString(), ...dato.opciones]);
+        }
+      }
+  
+      console.log("Select cargado con", datos.length, "parámetros.");
+      console.log("🧾 Opciones textuales:", opcionesTextuales);
+  
+    } catch (err) {
+      console.error("Error al cargar select:", err);
+    }
+  }
+
+  
+  function mostrarCampoSegunDireccionYValor(direccion, valor) {
+  
+    const param = datosModelo.find(p => p.direccion === parseInt(direccion));
+  
+    if (!param) {
+      console.warn("Parámetro no encontrado para dirección:", direccion);
+      return;
+    }
+    const pantallaVisible = document.getElementById(`pantalla-${modelo}`);
+   
+    /*const inputNum = document.getElementById("parLeido");
+    const selecText = document.getElementById("selecText");
+  //para el tipo DESPLAZAMIENTO_WORDS
+    const inputN1 = document.getElementById("n1Leido");
+    const inputN2 = document.getElementById("n2Leido");
+    const lN1 = document.getElementById("s1L");
+    const lN2 = document.getElementById("s2L");*/
+    const inputNum = pantallaVisible.querySelector("#parLeido");
+    const selecText = pantallaVisible.querySelector("#selecText");
+    const inputN1 = pantallaVisible.querySelector("#n1Leido");
+    const inputN2 = pantallaVisible.querySelector("#n2Leido");
+    const lN1 = pantallaVisible.querySelector("#s1L");
+    const lN2 = pantallaVisible.querySelector("#s2L");
+    
+    // Reset UI
+    inputNum.style.display = "none";
+    selecText.style.display = "none";
+    inputN1.style.display = "none";
+    inputN2.style.display = "none";
+    lN1.style.display = "none";
+    lN2.style.display = "none";
+    inputNum.readOnly = false;
+  
+    if (param.tipo === "TEXTO") {
+      // Buscar en opcionesTextuales
+      lastDirParamIsTexto=1;
+      const opciones = opcionesTextuales.find(op => parseInt(op[0]) === parseInt(direccion));
+      if (!opciones) {
+        console.warn("No se encontraron opciones textuales para dirección:", direccion);
+        return;
+      }
+  
+      selecText.innerHTML = "";
+      for (let i = 1; i < opciones.length; i++) {
+        const option = document.createElement("option");
+        option.value = i - 1; // el índice numérico a enviar
+        option.textContent = opciones[i];
+        if (parseInt(valor) === (i - 1)) {
+          option.selected = true;
+        }
+        selecText.appendChild(option);
+      }
+  
+      selecText.style.display = "inline-block";
+  
+    } else if (param.tipo === "NUMERICO") {
+      lastDirParamIsTexto=0;
+      var val=parseFloat(valor);
+      val=val/Math.pow(10, param.decimales);
+      inputNum.type = "number";
+      inputNum.step = param.decimales > 0 ? `0.${'0'.repeat(param.decimales - 1)}1` : "1";
+      inputNum.min = param.min ?? 0;
+      inputNum.max = param.max ?? 9999;
+      inputNum.value =val.toFixed(param.decimales);
+      inputNum.style.display = "inline-block";
+  
+    } else if (param.tipo === "INDICACION" ) {
+      lastDirParamIsTexto=0;
+      var val=parseFloat(valor);
+      val=val/Math.pow(10, param.decimales);
+      inputNum.type = "text";
+      inputNum.readOnly = true;
+      inputNum.value = val.toFixed(param.decimales);
+      inputNum.style.display = "inline-block";
+
+    }else  if(param.tipo === "DESPLAZAMIENTO_WORDS"){
+      lastDirParamIsTexto=0;
+      var val=parseInt(valor);
+      var n1=val&0xFFFF0000;
+      n1=n1>>16;
+      var n2=val&0x0000FFFF;
+      var valN1=parseFloat(n1);
+      valN1=valN1/Math.pow(10, param.decimales);
+      var valN2=parseFloat(n2);
+      valN2=valN2/Math.pow(10, param.decimales);
+      inputN1.type = "number";
+      inputN2.type = "number";
+      inputN1.step = param.decimales > 0 ? `0.${'0'.repeat(param.decimales - 1)}1` : "1";
+      inputN2.step = param.decimales > 0 ? `0.${'0'.repeat(param.decimales - 1)}1` : "1";
+      inputN1.value = valN1.toFixed(param.decimales);
+      inputN2.value = valN2.toFixed(param.decimales);
+      inputN1.style.display = "inline-block";
+      inputN2.style.display = "inline-block";
+      lN1.style.display = "inline-block";
+      lN2.style.display = "inline-block";
+
+    }
+    
+    else {
+      console.warn("Tipo no manejado:", param.tipo);
+    }
+  }
