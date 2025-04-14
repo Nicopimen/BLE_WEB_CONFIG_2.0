@@ -16,6 +16,11 @@ const tempAmbienteContainer = document.getElementById('tempamb');
 const parametroLeido = document.getElementById('parLeido');
 const selecTextos = document.getElementById('selecText');
 */
+
+const timesEstadoContainerCE4_MS = document.getElementById('tiempoStateCE4_MS');
+const tempAmbienteContainerCE4_MS = document.getElementById('tempambCE4_MS');
+
+
 const usuarioActivo = obtenerUsuarioDesdeURL();
 
 if (!usuarioActivo) {
@@ -280,6 +285,10 @@ function handleCharacteristicChangeTempAmb(event) {
   const newValueReceived = new TextDecoder().decode(event.target.value);
   console.log("Temperatura Amb: ", newValueReceived);
 
+  if(modelo==="CE4_MS"){
+    tempAmbienteContainerCE4_MS.innerHTML = newValueReceived;
+  }
+
   if (tempAmbienteContainer) {
     tempAmbienteContainer.innerHTML = newValueReceived;
   } else {
@@ -290,11 +299,13 @@ function handleCharacteristicChangeTempAmb(event) {
 function handleCharacteristicChangeTiempo(event) {
   const newValueReceived = new TextDecoder().decode(event.target.value);
   console.log("Tiempo en estado: ", newValueReceived);
-
+  if(modelo==="CE4_MS"){
+      timesEstadoContainerCE4_MS.innerHTML = segundosAHoras(parseInt(newValueReceived, 10));
+  }
   if (timesEstadoContainer) {
     const tiempo = parseInt(newValueReceived, 10);
     if (!isNaN(tiempo)) {
-      timesEstadoContainer.innerHTML = segundosAHoras(tiempo);
+      //timesEstadoContainer.innerHTML = segundosAHoras(tiempo);
     } else {
       console.warn("⚠️ Valor de tiempo inválido:", newValueReceived);
     }
@@ -397,7 +408,7 @@ function readCharacteristic2(caracteristica){
             if(caracteristica==TIME_ESTADO_CHARACTERISTIC_UUID){
                  const newValueReceived = new TextDecoder().decode(value);
                  console.log("Nuevo tiempo Estado: ", newValueReceived);
-                 timesEstadoContainer.innerHTML = newValueReceived;
+                // timesEstadoContainer.innerHTML = newValueReceived;
                   //readCharacteristic2(ALTO_BAJO_CHARACTERISTIC_UUID);
             }
             if(caracteristica==PARAMETRO_CHARACTERISTIC_UUID){
