@@ -276,21 +276,32 @@ function onDisconnected(event){
 }
 
 
-function handleCharacteristicChangeTempAmb(event){
-  //para temperatura Ambiente
+function handleCharacteristicChangeTempAmb(event) {
   const newValueReceived = new TextDecoder().decode(event.target.value);
   console.log("Temperatura Amb: ", newValueReceived);
-  tempAmbienteContainer.innerHTML = newValueReceived;
 
+  if (tempAmbienteContainer) {
+    tempAmbienteContainer.innerHTML = newValueReceived;
+  } else {
+    console.warn("❗ tempAmbienteContainer no está listo aún");
+  }
 }
 
- function handleCharacteristicChangeTiempo(event){
-   //para el tiempo del estado en seg
-     const newValueReceived = new TextDecoder().decode(event.target.value);
-    console.log("Tiempo en estado: ", newValueReceived);
-    timesEstadoContainer.innerHTML = segundosAHoras(parseInt(newValueReceived, 10));
-    //timesEstadoContainer.innerHTML = newValueReceived;
- }
+function handleCharacteristicChangeTiempo(event) {
+  const newValueReceived = new TextDecoder().decode(event.target.value);
+  console.log("Tiempo en estado: ", newValueReceived);
+
+  if (timesEstadoContainer) {
+    const tiempo = parseInt(newValueReceived, 10);
+    if (!isNaN(tiempo)) {
+      timesEstadoContainer.innerHTML = segundosAHoras(tiempo);
+    } else {
+      console.warn("⚠️ Valor de tiempo inválido:", newValueReceived);
+    }
+  } else {
+    console.warn("❗ timesEstadoContainer no está listo aún");
+  }
+}
 
  function handleCharacteristicChangeParametro(event){
    //para el lectura del parametro
