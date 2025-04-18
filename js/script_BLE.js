@@ -421,8 +421,14 @@ function readCharacteristic2(caracteristica){
                     
         })
         .catch(error => {
-            console.error("Error reading to characteristic: ", error);
-            ocultarSpinner();
+             console.error("Error reading to characteristic: ", error);
+             if(caracteristica==PARAMETRO_CHARACTERISTIC_UUID){
+                if(newValueReceived==="ERROR"){
+                  lastValueWrite="";
+                  leerParametro();
+                  }
+              }else
+                ocultarSpinner();
         });
     } else {
         console.error ("Bluetooth is not connected. Cannot write to characteristic.")
