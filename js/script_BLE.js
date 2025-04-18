@@ -426,6 +426,19 @@ function readCharacteristic2(caracteristica){
         .catch(error => {
             console.error("Error reading to characteristic: ", error);
             ocultarSpinner();
+            Swal.fire({ 
+                title: "No se pudo Leer", 
+               // html: `Debe completar los datos`,
+                icon: "error",
+                background: "#2c2c2e",
+                color: "#e0e0e0",
+                confirmButtonColor: "#4b6cb7",
+                confirmButtonText: "OK",
+                customClass: {
+                    popup: 'swal-dark'
+                  } 
+                });
+          
         });
     } else {
         console.error ("Bluetooth is not connected. Cannot write to characteristic.")
@@ -490,7 +503,20 @@ function writeOnCharacteristic(value, caracteristica){
         })
         .catch(error => {
             console.error("Error writing to characteristic: ", error);
-           // ocultarSpinner();
+             ocultarSpinner();
+             Swal.fire({ 
+                title: "No se pudo Escribir", 
+               // html: `Debe completar los datos`,
+                icon: "error",
+                background: "#2c2c2e",
+                color: "#e0e0e0",
+                confirmButtonColor: "#4b6cb7",
+                confirmButtonText: "OK",
+                customClass: {
+                    popup: 'swal-dark'
+                  } 
+                });
+           
         });
     } else {
         console.error ("Bluetooth is not connected. Cannot write to characteristic.")
