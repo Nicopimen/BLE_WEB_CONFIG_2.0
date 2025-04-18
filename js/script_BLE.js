@@ -16,12 +16,8 @@ const tempAmbienteContainer = document.getElementById('tempamb');
 const parametroLeido = document.getElementById('parLeido');
 const selecTextos = document.getElementById('selecText');
 */
-
-const timesEstadoContainerCE4_MS = document.getElementById('tiempoStateCE4_MS');
-const tempAmbienteContainerCE4_MS = document.getElementById('tempambCE4_MS');
-
-
-const usuarioActivo = obtenerUsuarioDesdeURL();
+//const usuarioActivo = obtenerUsuarioDesdeURL();
+const usuarioActivo = localStorage.getItem("usuarioLogueado");
 
 if (!usuarioActivo) {
   Swal.fire({
@@ -116,6 +112,7 @@ function obtenerUsuarioDesdeURL() {
 }
 
 function cerrarSesion() {
+  localStorage.removeItem("usuarioLogueado");
   window.location.href = "index.html";
 }
 
@@ -245,28 +242,25 @@ function connectToDevice(){
         characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChange);
         characteristic.startNotifications();
         console.log("Notifications Started Estado.");
-        return bleServiceFound.getCharacteristic(TIME_ESTADO_CHARACTERISTIC_UUID); // characteristic.readValue();
+        return bleServiceFound.getCharacteristic(TIME_ESTADO_CHARACTERISTIC_UUID);
     })
-
-    // bleServiceFound.getCharacteristic(TIME_ESTADO_CHARACTERISTIC_UUID)
-    .then(characteristic => {
+    /*.then(characteristic => {
        characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChangeTiempo);
        characteristic.startNotifications();
        console.log("Notifications Started tiempo .");
-      return bleServiceFound.getCharacteristic(PARAMETRO_CHARACTERISTIC_UUID);
+       return bleServiceFound.getCharacteristic(PARAMETRO_CHARACTERISTIC_UUID);
     })
     .then(characteristic => {
        characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChangeParametro);
        characteristic.startNotifications();
        console.log("Notifications Started parametro .");
-       //leerParametro();
        return bleServiceFound.getCharacteristic(TEMP_AMB_CHARACTERISTIC_UUID);
     })
     .then(characteristic => {
       characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChangeTempAmb);
       characteristic.startNotifications();
       console.log("Notifications Started TempAmb .");
-   })
+   })*/
     .catch(error => {
         console.log('Error: ', error);
     })
@@ -280,14 +274,26 @@ function onDisconnected(event){
     connectToDevice();
 }
 
+/*
+function handleCharacteristicChangeTempAmb(event){
+  //para temperatura Ambiente
+  const newValueReceived = new TextDecoder().decode(event.target.value);
+  console.log("Temperatura Amb: ", newValueReceived);
+  tempAmbienteContainer.innerHTML = newValueReceived;
 
+}
+
+ function handleCharacteristicChangeTiempo(event){
+   //para el tiempo del estado en seg
+     const newValueReceived = new TextDecoder().decode(event.target.value);
+    console.log("Tiempo en estado: ", newValueReceived);
+    timesEstadoContainer.innerHTML = segundosAHoras(parseInt(newValueReceived, 10));
+    //timesEstadoContainer.innerHTML = newValueReceived;
+ }
+*/
 function handleCharacteristicChangeTempAmb(event) {
   const newValueReceived = new TextDecoder().decode(event.target.value);
   console.log("Temperatura Amb: ", newValueReceived);
-
-  if(modelo==="CE4_MS"){
-    tempAmbienteContainerCE4_MS.innerHTML = newValueReceived;
-  }
 
   if (tempAmbienteContainer) {
     tempAmbienteContainer.innerHTML = newValueReceived;
@@ -299,13 +305,11 @@ function handleCharacteristicChangeTempAmb(event) {
 function handleCharacteristicChangeTiempo(event) {
   const newValueReceived = new TextDecoder().decode(event.target.value);
   console.log("Tiempo en estado: ", newValueReceived);
-  if(modelo==="CE4_MS"){
-      timesEstadoContainerCE4_MS.innerHTML = segundosAHoras(parseInt(newValueReceived, 10));
-  }
+
   if (timesEstadoContainer) {
     const tiempo = parseInt(newValueReceived, 10);
     if (!isNaN(tiempo)) {
-      //timesEstadoContainer.innerHTML = segundosAHoras(tiempo);
+      timesEstadoContainer.innerHTML = segundosAHoras(tiempo);
     } else {
       console.warn("⚠️ Valor de tiempo inválido:", newValueReceived);
     }
@@ -313,6 +317,7 @@ function handleCharacteristicChangeTiempo(event) {
     console.warn("❗ timesEstadoContainer no está listo aún");
   }
 }
+
 
  function handleCharacteristicChangeParametro(event){
    //para el lectura del parametro
@@ -348,38 +353,9 @@ function handleCharacteristicChange(event){
     }else{
          onButton.innerText = "ENCENDER";
     }
-     //var BabfC = readCharacteristic(ALTO_BAJO_CHARACTERISTIC_UUID);
+      readCharacteristic2(TIME_ESTADO_CHARACTERISTIC_UUID);
 
 
-        bleServiceFound.getCharacteristic(ALTO_BAJO_CHARACTERISTIC_UUID)
-        .then(characteristic => {
-            // console.log("Found the characteristic: ", characteristic.uuid);
-            return characteristic.readValue();
-        })
-        .then(value => {
-            console.log("Lellendo Estado ABF");
-              var abfC = new TextDecoder().decode(value);
-              console.log("ABF: ", abfC);
-              
-              if(abfC === ("DESACTIVADO")){
-                    if(modelo==="CE4" || modelo === "CE5")
-                      abfButton.innerText="ALTO FUEGO";
-                    else
-                      abfButton.innerText="DESACTIVADO";
-              }else{
-                  if(modelo==="CE4" || modelo === "CE5")
-                    abfButton.innerText="BAJO FUEGO";
-                  else
-                   abfButton.innerText="ACTIVADO";
-              }
-                    
-        })
-        .catch(error => {
-            console.error("Error reading to characteristic: ", error);
-        });
-   
-    
-    
 }
 
 
@@ -399,18 +375,35 @@ function readCharacteristic2(caracteristica){
                 var abfC = new TextDecoder().decode(value);
                  console.log("Valor leido:", abfC);
                  
-                 if(abfC.localeCompare("DESACTIVADO")==0){
-                        abfButton.innerText="ALTO FUEGO";
-                    }else
+                 if(abfC === ("DESACTIVADO")){
+                    if(modelo==="CE4" || modelo === "CE5")
+                      abfButton.innerText="ALTO FUEGO";
+                    else
+                      abfButton.innerText="DESACTIVADO";
+                  }else{
+                      if(modelo==="CE4" || modelo === "CE5")
                         abfButton.innerText="BAJO FUEGO";
-                
+                      else
+                      abfButton.innerText="ACTIVADO";
+                  }
             }
             if(caracteristica==TIME_ESTADO_CHARACTERISTIC_UUID){
                  const newValueReceived = new TextDecoder().decode(value);
                  console.log("Nuevo tiempo Estado: ", newValueReceived);
                 // timesEstadoContainer.innerHTML = newValueReceived;
-                  //readCharacteristic2(ALTO_BAJO_CHARACTERISTIC_UUID);
+                 timesEstadoContainer.innerHTML = segundosAHoras(parseInt(newValueReceived, 10));
+                 readCharacteristic2(TEMP_AMB_CHARACTERISTIC_UUID);
+                  
             }
+            
+            if(caracteristica==TEMP_AMB_CHARACTERISTIC_UUID){
+              const newValueReceived = new TextDecoder().decode(value);
+              console.log("Temperatura Amb: ", newValueReceived);
+              tempAmbienteContainer.innerHTML = newValueReceived;
+              readCharacteristic2(ALTO_BAJO_CHARACTERISTIC_UUID);
+               
+            }
+
             if(caracteristica==PARAMETRO_CHARACTERISTIC_UUID){
                 
                 const newValueReceived = new TextDecoder().decode(value);
