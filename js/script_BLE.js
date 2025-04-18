@@ -636,6 +636,19 @@ function writeOnCharacteristic(value, caracteristica){
       })
       .catch(error => {
         console.log("An error occurred:", error);
+        ocultarSpinner();
+        Swal.fire({ 
+          title: "No se pudo Escribir", 
+         // html: `Debe completar los datos`,
+          icon: "error",
+          background: "#2c2c2e",
+          color: "#e0e0e0",
+          confirmButtonColor: "#4b6cb7",
+          confirmButtonText: "OK",
+          customClass: {
+              popup: 'swal-dark'
+            } 
+          });
       });
     
      
