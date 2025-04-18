@@ -527,7 +527,7 @@ function writeOnCharacteristic(value, caracteristica){
     }
 }
 
- function escribirParametro(){
+ async function escribirParametro(){
    // var e = document.getElementById("seleParm");
     const pantallaVisible = document.getElementById(`pantalla-${modelo}`);
     var e = pantallaVisible.querySelector("#seleParm");
@@ -603,6 +603,9 @@ function writeOnCharacteristic(value, caracteristica){
 
    
     var toSend =dir.concat(",").concat(valor);
+
+    await esperarHasta(() =>  isLecturaDispaly === 0);
+    
     //detengo las notificaciones , para evitar concurrencias
     caracteristicaEstado.stopNotifications()
     .then(() => {
@@ -744,10 +747,11 @@ function esperarHasta(condicionFn, intervalo = 500) {
 }
 
 
-function disconnectDevice() {
+async function disconnectDevice() {
     console.log("Disconnect Device.");
     if (bleServer && bleServer.connected) {
         if (caracteristicaEstado) {
+          await esperarHasta(() =>  isLecturaDispaly === 0);
           caracteristicaEstado.stopNotifications()
                 .then(() => {
                     console.log("Notifications Stopped");
