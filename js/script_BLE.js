@@ -178,8 +178,8 @@ function connectToDevice(){
             else if(usuarioActivo==="Tecnica2")
               cargarOpcionesEnSelect("opcionesPorParametroCE5.csv","PermisosTecnica2_CE5.csv" );
 
-            onButton.addEventListener('click', () => writeOnCharacteristic(1,START_STOP_CHARACTERISTIC_UUID));
-            abfButton.addEventListener('click', () => writeOnCharacteristic(1,ALTO_BAJO_CHARACTERISTIC_UUID));
+            onButton.addEventListener('click', () => onButtonAction(1,START_STOP_CHARACTERISTIC_UUID));
+            abfButton.addEventListener('click', () => onButtonAction(1,ALTO_BAJO_CHARACTERISTIC_UUID));
             actButton.addEventListener('click', () => escribirParametro());
             document.getElementById("pantalla-CE5").style.display = "block";
         
@@ -196,8 +196,8 @@ function connectToDevice(){
             else if(usuarioActivo==="Tecnica2")
               cargarOpcionesEnSelect("opcionesPorParametroCE4.csv","PermisosTecnica2_CE4.csv" );
             
-            onButton.addEventListener('click', () => writeOnCharacteristic(1,START_STOP_CHARACTERISTIC_UUID));
-            abfButton.addEventListener('click', () => writeOnCharacteristic(1,ALTO_BAJO_CHARACTERISTIC_UUID));
+            onButton.addEventListener('click', () => onButtonAction(1,START_STOP_CHARACTERISTIC_UUID));
+            abfButton.addEventListener('click', () => onButtonAction(1,ALTO_BAJO_CHARACTERISTIC_UUID));
             actButton.addEventListener('click', () => escribirParametro());
             document.getElementById("pantalla-CE4").style.display = "block";
        
@@ -213,7 +213,7 @@ function connectToDevice(){
           else if(usuarioActivo==="Tecnica2")
             cargarOpcionesEnSelect("opcionesPorParametroCE4.csv","PermisosTecnica2_CE4_MS.csv" );
 
-          onButton.addEventListener('click', () => writeOnCharacteristic(1,START_STOP_CHARACTERISTIC_UUID));
+          onButton.addEventListener('click', () => onButtonAction(1,START_STOP_CHARACTERISTIC_UUID));
           actButton.addEventListener('click', () => escribirParametro());
           document.getElementById("pantalla-CE4_MS").style.display = "block";
         
@@ -426,19 +426,18 @@ function readCharacteristic2(caracteristica){
         .catch(error => {
             console.error("Error reading to characteristic: ", error);
             ocultarSpinner();
-            Swal.fire({ 
-                title: "No se pudo Leer", 
-               // html: `Debe completar los datos`,
-                icon: "error",
-                background: "#2c2c2e",
-                color: "#e0e0e0",
-                confirmButtonColor: "#4b6cb7",
-                confirmButtonText: "OK",
-                customClass: {
-                    popup: 'swal-dark'
-                  } 
-                });
-          
+           /* Swal.fire({ 
+              title: "No se pudo Leer", 
+             // html: `Debe completar los datos`,
+              icon: "error",
+              background: "#2c2c2e",
+              color: "#e0e0e0",
+              confirmButtonColor: "#4b6cb7",
+              confirmButtonText: "OK",
+              customClass: {
+                  popup: 'swal-dark'
+                } 
+              });*/
         });
     } else {
         console.error ("Bluetooth is not connected. Cannot write to characteristic.")
@@ -493,7 +492,6 @@ function writeOnCharacteristic(value, caracteristica){
         .then(() => {
            // latestValueSent.innerHTML = value;
             console.log("Value written to characteristic:", value);
-            console.log("es escritura:", isEscritura);
             if(isEscritura===1){
               isEscritura=0;
                //reinicio las notificaciones
@@ -503,20 +501,21 @@ function writeOnCharacteristic(value, caracteristica){
         })
         .catch(error => {
             console.error("Error writing to characteristic: ", error);
-             ocultarSpinner();
-             Swal.fire({ 
-                title: "No se pudo Escribir", 
-               // html: `Debe completar los datos`,
-                icon: "error",
-                background: "#2c2c2e",
-                color: "#e0e0e0",
-                confirmButtonColor: "#4b6cb7",
-                confirmButtonText: "OK",
-                customClass: {
-                    popup: 'swal-dark'
-                  } 
-                });
+            ocultarSpinner();
+            Swal.fire({ 
+              title: "No se pudo Escribir", 
+             // html: `Debe completar los datos`,
+              icon: "error",
+              background: "#2c2c2e",
+              color: "#e0e0e0",
+              confirmButtonColor: "#4b6cb7",
+              confirmButtonText: "OK",
+              customClass: {
+                  popup: 'swal-dark'
+                } 
+              });
            
+
         });
     } else {
         console.error ("Bluetooth is not connected. Cannot write to characteristic.")
@@ -612,19 +611,20 @@ function writeOnCharacteristic(value, caracteristica){
       })
       .catch(error => {
         console.log("An error occurred:", error);
-         ocultarSpinner();
-          Swal.fire({ 
-            title: "No se pudo Escribir", 
-           // html: `Debe completar los datos`,
-            icon: "error",
-            background: "#2c2c2e",
-            color: "#e0e0e0",
-            confirmButtonColor: "#4b6cb7",
-            confirmButtonText: "OK",
-            customClass: {
-                popup: 'swal-dark'
-              } 
-            });
+        ocultarSpinner();
+        Swal.fire({ 
+          title: "No se pudo Escribir", 
+         // html: `Debe completar los datos`,
+          icon: "error",
+          background: "#2c2c2e",
+          color: "#e0e0e0",
+          confirmButtonColor: "#4b6cb7",
+          confirmButtonText: "OK",
+          customClass: {
+              popup: 'swal-dark'
+            } 
+          });
+
       });
     
 }
@@ -667,6 +667,37 @@ function writeOnCharacteristic(value, caracteristica){
      
   
     
+}
+
+function onButtonAction(value,caracteristica){
+
+  isEscritura=1;
+  mostrarSpinner("Actualizando...");
+ 
+  //detengo las notificaciones , para evitar concurrencias
+  caracteristicaEstado.stopNotifications()
+  .then(() => {
+    
+    writeOnCharacteristic(value,caracteristica);
+   
+    })
+    .catch(error => {
+      console.log("An error occurred:", error);
+      ocultarSpinner();
+      Swal.fire({ 
+        title: "No se pudo Actualizar", 
+       // html: `Debe completar los datos`,
+        icon: "error",
+        background: "#2c2c2e",
+        color: "#e0e0e0",
+        confirmButtonColor: "#4b6cb7",
+        confirmButtonText: "OK",
+        customClass: {
+            popup: 'swal-dark'
+          } 
+        });
+
+    });
 }
 
 // funcion lectura parametro , se ejecuta luego de 2 seg
