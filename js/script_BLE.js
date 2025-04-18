@@ -78,6 +78,7 @@ var permisos=[];
 var lastDirParam;
 var lastDirParamIsTexto;
 var lastValueWrite="";
+var isEscritura=0;
 
 // Connect Button (search for BLE Devices only if BLE is available)
 connectButton.addEventListener('click', (event) => {
@@ -479,6 +480,11 @@ function writeOnCharacteristic(value, caracteristica){
         .then(() => {
            // latestValueSent.innerHTML = value;
             console.log("Value written to characteristic:", value);
+            if(isEscritura===1){
+              isEscritura=0;
+               //reinicio las notificaciones
+              caracteristicaEstado.startNotifications();
+            }
             ocultarSpinner();
         })
         .catch(error => {
@@ -564,6 +570,8 @@ function writeOnCharacteristic(value, caracteristica){
     mostrarSpinner("Actualizando...");
 
     lastValueWrite=valor;
+    isEscritura=1;
+
    
     var toSend =dir.concat(",").concat(valor);
     //detengo las notificaciones , para evitar concurrencias
@@ -572,7 +580,6 @@ function writeOnCharacteristic(value, caracteristica){
       //escribo la direccion del parametro, 
       console.log('escribo el parametro:',parametro.concat(" ").concat(toSend));
       writeOnCharacteristic(toSend, PARAMETRO_CHARACTERISTIC_UUID);
-      
       // lecturaParam3Async(); //luego de escribir, 3seg y leo para confirmar
       // ocultarSpinner();
       })
