@@ -480,6 +480,7 @@ function writeOnCharacteristic(value, caracteristica){
         .then(() => {
            // latestValueSent.innerHTML = value;
             console.log("Value written to characteristic:", value);
+            console.log("es escritura:", isEscritura);
             if(isEscritura===1){
               isEscritura=0;
                //reinicio las notificaciones
