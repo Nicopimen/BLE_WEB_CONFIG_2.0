@@ -566,11 +566,24 @@ function writeOnCharacteristic(value, caracteristica){
     lastValueWrite=valor;
    
     var toSend =dir.concat(",").concat(valor);
-    //escribo la direccion del parametro, 
-     console.log('escribo el parametro:',parametro.concat(" ").concat(toSend));
-     writeOnCharacteristic(toSend, PARAMETRO_CHARACTERISTIC_UUID);
-    // lecturaParam3Async(); //luego de escribir, 3seg y leo para confirmar
-   // ocultarSpinner();
+    //detengo las notificaciones , para evitar concurrencias
+    caracteristicaEstado.stopNotifications()
+    .then(() => {
+      //escribo la direccion del parametro, 
+      console.log('escribo el parametro:',parametro.concat(" ").concat(toSend));
+      writeOnCharacteristic(toSend, PARAMETRO_CHARACTERISTIC_UUID);
+      return new Promise((resolve) => {
+        setTimeout(() => {
+           //reinicio las notificaciones
+            caracteristicaEstado.startNotifications();
+        }, 1000);
+      });
+      // lecturaParam3Async(); //luego de escribir, 3seg y leo para confirmar
+      // ocultarSpinner();
+      })
+      .catch(error => {
+        console.log("An error occurred:", error);
+      });
     
 }
 
