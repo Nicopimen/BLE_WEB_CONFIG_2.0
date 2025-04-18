@@ -54,7 +54,6 @@ async function leerCSVDesdeArchivo(ruta) {
     const hashedPassword = await hashPassword(password);
 
     const usuarios = await leerCSVDesdeArchivo("Usuarios.csv");
-    
 
 
    console.log(usuarios);
@@ -68,15 +67,18 @@ async function leerCSVDesdeArchivo(ruta) {
         
         console.log(usuarioValido.estado);
         if(username=="Admin" || username=="Ingenieria1"){ 
+           localStorage.setItem("usuarioLogueado", username);
            // alert("Admin Inicio de sesión exitoso!");
-           window.location.href = `AdminUnificado.html?usuario=${encodeURIComponent(username)}`;
-          //window.location.href = "AdminUnificado.html";
+           //window.location.href = `AdminUnificado.html?usuario=${encodeURIComponent(username)}`;
+          window.location.href = "AdminUnificado.html";
        
         }else if(username=="Ingenieria2" || username=="Tecnica1" || username=="Tecnica2"){
             if(usuarioValido.estado == "valida"){ 
+              localStorage.setItem("usuarioLogueado", username);
               //alert("Ingenieria2 Inicio de sesión exitoso!");
               //window.location.href = "initIngenieria2.html";
-              window.location.href = `AdminUnificado.html?usuario=${encodeURIComponent(username)}`;
+              window.location.href = "AdminUnificado.html";
+              //window.location.href = `AdminUnificado.html?usuario=${encodeURIComponent(username)}`;
             }else{
               document.getElementById("error-msg").textContent = "Su clave a caducado, debe comunicarse con el Administrador.";
               Swal.fire({ 
@@ -110,5 +112,7 @@ async function leerCSVDesdeArchivo(ruta) {
 
     }
   });
+  
+  
   
   
