@@ -69,7 +69,7 @@ var TEMP_AMB_CHARACTERISTIC_UUID =        "f090ca78-40ef-48d0-891c-07aad1236d4a"
 //Global Variables to Handle Bluetooth
 var bleServer;
 var bleServiceFound;
-var sensorCharacteristicFound;
+var caracteristicaEstado; // global
 
 var modelo;
 var opcionesTextuales=[];
@@ -238,11 +238,11 @@ function connectToDevice(){
     })
     .then(characteristic => {
         console.log("Characteristic discovered:", characteristic.uuid);
-        sensorCharacteristicFound = characteristic;
+        caracteristicaEstado = characteristic;
         characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChange);
         characteristic.startNotifications();
         console.log("Notifications Started Estado.");
-        return bleServiceFound.getCharacteristic(TIME_ESTADO_CHARACTERISTIC_UUID);
+        //return bleServiceFound.getCharacteristic(TIME_ESTADO_CHARACTERISTIC_UUID);
     })
     /*.then(characteristic => {
        characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChangeTiempo);
@@ -411,24 +411,20 @@ function readCharacteristic2(caracteristica){
                
                 //si hubo error
                 if(newValueReceived==="ERROR"){
-                   lastValueWrite="";
+                    lastValueWrite="";
                     leerParametro();
                 }else{
                   mostrarCampoSegunDireccionYValor(lastDirParam, newValueReceived);
+                  //reinicio las notificaciones
+                  caracteristicaEstado.startNotifications();
                   ocultarSpinner();
                 }
             }
                     
         })
         .catch(error => {
-             console.error("Error reading to characteristic: ", error);
-             if(caracteristica==PARAMETRO_CHARACTERISTIC_UUID){
-                if(newValueReceived==="ERROR"){
-                  lastValueWrite="";
-                  leerParametro();
-                  }
-              }else
-                ocultarSpinner();
+            console.error("Error reading to characteristic: ", error);
+            ocultarSpinner();
         });
     } else {
         console.error ("Bluetooth is not connected. Cannot write to characteristic.")
@@ -572,7 +568,7 @@ function writeOnCharacteristic(value, caracteristica){
     var toSend =dir.concat(",").concat(valor);
     //escribo la direccion del parametro, 
      console.log('escribo el parametro:',parametro.concat(" ").concat(toSend));
-    writeOnCharacteristic(toSend, PARAMETRO_CHARACTERISTIC_UUID);
+     writeOnCharacteristic(toSend, PARAMETRO_CHARACTERISTIC_UUID);
     // lecturaParam3Async(); //luego de escribir, 3seg y leo para confirmar
    // ocultarSpinner();
     
@@ -587,11 +583,20 @@ function writeOnCharacteristic(value, caracteristica){
      if(dir=="0") return ;
      lastDirParam=dir;
      mostrarSpinner("Lellendo...");
-    //escribo la direccion del parametro, y luego de 2seg leo su valor
-     console.log('leo el parametro:',parametro.concat(" ").concat(dir));
-    writeOnCharacteristic(dir, PARAMETRO_CHARACTERISTIC_UUID);
-    lecturaParamAsync();
-   // ocultarSpinner();
+     //detengo las notificaciones , para evitar concurrencias
+     caracteristicaEstado.stopNotifications()
+     .then(() => {
+          //escribo la direccion del parametro, y luego de 2seg leo su valor
+        console.log('leo el parametro:',parametro.concat(" ").concat(dir));
+        writeOnCharacteristic(dir, PARAMETRO_CHARACTERISTIC_UUID);
+        lecturaParamAsync();
+        // ocultarSpinner(); 
+      })
+      .catch(error => {
+        console.log("An error occurred:", error);
+      });
+    
+     
   
     
 }
@@ -604,7 +609,7 @@ function resolveAfter2Seconds() {
       }, 2000);
     });
   }
-// funcion lectura parametro , se ejecuta luego de 4 seg
+// funcion lectura parametro , se ejecuta luego de 3 seg
   function resolveAfter3Seconds() {
     return new Promise((resolve) => {
       setTimeout(() => {
@@ -627,8 +632,8 @@ async function lecturaParam3Async() {
 function disconnectDevice() {
     console.log("Disconnect Device.");
     if (bleServer && bleServer.connected) {
-        if (sensorCharacteristicFound) {
-            sensorCharacteristicFound.stopNotifications()
+        if (caracteristicaEstado) {
+          caracteristicaEstado.stopNotifications()
                 .then(() => {
                     console.log("Notifications Stopped");
                     return bleServer.disconnect();
