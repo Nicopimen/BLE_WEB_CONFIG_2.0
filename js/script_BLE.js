@@ -79,6 +79,7 @@ var lastDirParam;
 var lastDirParamIsTexto;
 var lastValueWrite="";
 var isEscritura=0;
+var isLecturaDispaly=0;
 
 // Connect Button (search for BLE Devices only if BLE is available)
 connectButton.addEventListener('click', (event) => {
@@ -354,6 +355,7 @@ function handleCharacteristicChange(event){
     }else{
          onButton.innerText = "ENCENDER";
     }
+      isLecturaDispaly=1;
       readCharacteristic2(TIME_ESTADO_CHARACTERISTIC_UUID);
 
 
@@ -375,6 +377,7 @@ function readCharacteristic2(caracteristica){
             if(caracteristica==ALTO_BAJO_CHARACTERISTIC_UUID) {
                 var abfC = new TextDecoder().decode(value);
                  console.log("Valor leido:", abfC);
+                 isLecturaDispaly=0;
                  
                  if(abfC === ("DESACTIVADO")){
                     if(modelo==="CE4" || modelo === "CE5")
@@ -426,7 +429,7 @@ function readCharacteristic2(caracteristica){
         .catch(error => {
             console.error("Error reading to characteristic: ", error);
             ocultarSpinner();
-           /* Swal.fire({ 
+            Swal.fire({ 
               title: "No se pudo Leer", 
              // html: `Debe completar los datos`,
               icon: "error",
@@ -437,7 +440,7 @@ function readCharacteristic2(caracteristica){
               customClass: {
                   popup: 'swal-dark'
                 } 
-              });*/
+              });
         });
     } else {
         console.error ("Bluetooth is not connected. Cannot write to characteristic.")
@@ -669,8 +672,10 @@ function writeOnCharacteristic(value, caracteristica){
     
 }
 
-function onButtonAction(value,caracteristica){
+async function onButtonAction(value,caracteristica){
 
+  await esperarHasta(() =>  isLecturaDispaly === 0);
+  
   isEscritura=1;
   mostrarSpinner("Actualizando...");
  
@@ -725,6 +730,17 @@ async function lecturaParamAsync() {
 async function lecturaParam3Async() {
     await resolveAfter3Seconds();
   
+}
+
+function esperarHasta(condicionFn, intervalo = 500) {
+  return new Promise(resolve => {
+    const verificador = setInterval(() => {
+      if (condicionFn()) {
+        clearInterval(verificador);
+        resolve();
+      }
+    }, intervalo);
+  });
 }
 
 
