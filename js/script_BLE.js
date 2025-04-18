@@ -572,12 +572,7 @@ function writeOnCharacteristic(value, caracteristica){
       //escribo la direccion del parametro, 
       console.log('escribo el parametro:',parametro.concat(" ").concat(toSend));
       writeOnCharacteristic(toSend, PARAMETRO_CHARACTERISTIC_UUID);
-      return new Promise((resolve) => {
-        setTimeout(() => {
-           //reinicio las notificaciones
-            caracteristicaEstado.startNotifications();
-        }, 1000);
-      });
+      
       // lecturaParam3Async(); //luego de escribir, 3seg y leo para confirmar
       // ocultarSpinner();
       })
