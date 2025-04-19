@@ -1046,11 +1046,14 @@ async function parseCSV_DatosModelo(ruta) {
     // Reset UI
     inputNum.style.display = "none";
     selecText.style.display = "none";
-    inputN1.style.display = "none";
-    inputN2.style.display = "none";
-    lN1.style.display = "none";
-    lN2.style.display = "none";
     inputNum.readOnly = false;
+     if( modelo !== "CE5"){
+      inputN1.style.display = "none";
+      inputN2.style.display = "none";
+      lN1.style.display = "none";
+      lN2.style.display = "none";
+    }
+    
   
     if (param.tipo === "TEXTO") {
       // Buscar en opcionesTextuales
