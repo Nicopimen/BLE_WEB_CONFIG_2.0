@@ -1047,7 +1047,8 @@ async function parseCSV_DatosModelo(ruta) {
     inputNum.style.display = "none";
     selecText.style.display = "none";
     inputNum.readOnly = false;
-     if( modelo !== "CE5"){
+    
+    if( modelo != "CE5"){
       inputN1.style.display = "none";
       inputN2.style.display = "none";
       lN1.style.display = "none";
