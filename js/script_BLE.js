@@ -341,7 +341,7 @@ function handleCharacteristicChangeTiempo(event) {
     parametroLeido.value = newValueReceived;
  }
 
-function handleCharacteristicChange(event){
+async function handleCharacteristicChange(event){
    //para el estado del quemador
     const newValueReceived = new TextDecoder().decode(event.target.value);
     console.log("Estado Recibido: ", newValueReceived);
@@ -355,8 +355,9 @@ function handleCharacteristicChange(event){
     }else{
          onButton.innerText = "ENCENDER";
     }
-      isLecturaDispaly=1;
-      readCharacteristic2(TIME_ESTADO_CHARACTERISTIC_UUID);
+      //isLecturaDispaly=1;
+      //readCharacteristic2(TIME_ESTADO_CHARACTERISTIC_UUID);
+      await leerDatosDisplay();
 
 
 }
@@ -376,7 +377,7 @@ function readCharacteristic2(caracteristica){
            
             if(caracteristica==ALTO_BAJO_CHARACTERISTIC_UUID) {
                 var abfC = new TextDecoder().decode(value);
-                 console.log("Valor leido:", abfC);
+                 console.log("Estado ABF:", abfC);
                  isLecturaDispaly=0;
                  
                  if(abfC === ("DESACTIVADO")){
@@ -468,12 +469,34 @@ async function readCharacteristic(caracteristica){
         })
         .catch(error => {
             console.error("Error reading to characteristic: ", error);
-            resultado="ERROR CARACTERISTICA";
+            Swal.fire({ 
+              title: "No se pudo Leer", 
+             // html: `Debe completar los datos`,
+              icon: "error",
+              background: "#2c2c2e",
+              color: "#e0e0e0",
+              confirmButtonColor: "#4b6cb7",
+              confirmButtonText: "OK",
+              customClass: {
+                  popup: 'swal-dark'
+                } 
+              });
         });
     } else {
         console.error ("Bluetooth is not connected. Cannot write to characteristic.")
         window.alert("Bluetooth no conectado. \n Debe conectarse!")
-        resultado="ERROR NO CONECTADO";
+        Swal.fire({ 
+          title: "No esta conectado", 
+         // html: `Debe completar los datos`,
+          icon: "error",
+          background: "#2c2c2e",
+          color: "#e0e0e0",
+          confirmButtonColor: "#4b6cb7",
+          confirmButtonText: "OK",
+          customClass: {
+              popup: 'swal-dark'
+            } 
+          });
     }
 
     return resultado;
@@ -635,15 +658,19 @@ function writeOnCharacteristic(value, caracteristica){
     
 }
 
-  function leerParametro(){
+  async function leerParametro(){
     //var e = document.getElementById("seleParm");
     const pantallaVisible = document.getElementById(`pantalla-${modelo}`);
     var e = pantallaVisible.querySelector("#seleParm");
     var dir = e.value; //direccion a leer
     var parametro = e.options[e.selectedIndex].text;
      if(dir=="0") return ;
+     
      lastDirParam=dir;
+     
      mostrarSpinner("Lellendo...");
+    
+     await esperarHasta(() =>  isLecturaDispaly === 0);
      //detengo las notificaciones , para evitar concurrencias
      caracteristicaEstado.stopNotifications()
      .then(() => {
@@ -669,10 +696,38 @@ function writeOnCharacteristic(value, caracteristica){
             } 
           });
       });
-    
      
-  
-    
+}
+
+
+async function leerDatosDisplay() {
+  isLecturaDispaly=1;
+  let testate= await readCharacteristic(TIME_ESTADO_CHARACTERISTIC_UUID);
+  console.log("Nuevo tiempo Estado: ", testate);
+  if(testate!="ERROR"){
+    timesEstadoContainer.innerHTML = segundosAHoras(parseInt(testate, 10));
+  }
+  let tamb  = await readCharacteristic(TEMP_AMB_CHARACTERISTIC_UUID);
+  console.log("Temperatura Amb: ", tamb);
+  if(tamb!="ERROR"){
+    tempAmbienteContainer.innerHTML = tamb;
+  }
+  let eabf  = await readCharacteristic(ALTO_BAJO_CHARACTERISTIC_UUID);
+  console.log("Estado ABF:", eabf);
+  if(eabf!="ERROR"){
+      if(eabf === ("DESACTIVADO")){
+        if(modelo==="CE4" || modelo === "CE5")
+          abfButton.innerText="ALTO FUEGO";
+        else
+          abfButton.innerText="DESACTIVADO";
+      }else{
+          if(modelo==="CE4" || modelo === "CE5")
+            abfButton.innerText="BAJO FUEGO";
+          else
+          abfButton.innerText="ACTIVADO";
+      }
+  }
+  isLecturaDispaly=0;
 }
 
 async function onButtonAction(value,caracteristica){
@@ -735,7 +790,7 @@ async function lecturaParam3Async() {
   
 }
 
-function esperarHasta(condicionFn, intervalo = 500) {
+function esperarHasta(condicionFn, intervalo = 200) {
   return new Promise(resolve => {
     const verificador = setInterval(() => {
       if (condicionFn()) {
